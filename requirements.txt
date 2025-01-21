@@ -1,0 +1,4 @@
+pymongo
+motor
+telethon
+python-dotenv
