@@ -27,7 +27,7 @@ def save_last_message_id(message_id):
 
 async def fetch_and_store_messages():
     """Fetch messages from source channel and store in MongoDB."""
-    with TelegramClient('sessions/session_name', API_ID, API_HASH) as client:
+    async with TelegramClient('sessions/session_name', API_ID, API_HASH) as client:
         source_channel = await client.get_entity(SOURCE_CHAT_ENTITY)
 
         last_message_id = get_last_message_id()

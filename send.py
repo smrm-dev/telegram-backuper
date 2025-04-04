@@ -26,7 +26,7 @@ async def send_message(client, message, account_index):
 
             # Mark message as sent in MongoDB
             await async_collection.update_one({'_id': message['_id']}, {'$set': {'sent': True}})
-            await asyncio.sleep(7)
+            await asyncio.sleep(1)
             break
         except FloodWaitError as e:
             logging.warning(f"Rate limit hit. Sleeping for {e.seconds} seconds.")
@@ -34,8 +34,8 @@ async def send_message(client, message, account_index):
             # await asyncio.sleep(e.seconds + 1)
         except Exception as e:
             logging.error(f"Error sending message ID {message['id']}: {e}")
+            logging.info(message)
             retries -= 1
-            await asyncio.sleep(5)
     return 0
 
 
