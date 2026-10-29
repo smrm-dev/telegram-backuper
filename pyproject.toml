@@ -1,0 +1,14 @@
+[project]
+name = "telegram-backuper"
+version = "0.1.0"
+description = "Back up Telegram messages to MongoDB and send stored messages."
+requires-python = ">=3.10"
+dependencies = [
+    "motor",
+    "pymongo",
+    "python-dotenv",
+    "telethon<2",
+]
+
+[tool.uv]
+package = false
