@@ -4,6 +4,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+MONGODB_URI = os.getenv('MONGODB_URI', 'mongodb://localhost:27017/')
+
 # Telegram API credentials
 API_ID = int(os.getenv('API_ID'))
 API_HASH = os.getenv('API_HASH')

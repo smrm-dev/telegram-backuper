@@ -1,0 +1,11 @@
+*
+!Dockerfile
+!pyproject.toml
+!uv.lock
+!backup.py
+!send.py
+!sign_in.py
+!settings/
+!settings/*.py
+!logger/
+!logger/*.py
