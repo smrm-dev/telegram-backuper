@@ -1,108 +1,85 @@
 # Telegram Backuper
 
-Manage dependencies and run the scripts with [uv](https://docs.astral.sh/uv/).
-Python 3.10 or newer is required.
+A local web UI to sign in to Telegram, choose source and destination chats,
+and start a backup. Messages are saved to MongoDB first, then sent from the
+archive to the destination as new messages. Attachments are downloaded locally
+and uploaded when sending. Everything runs on your computer.
 
 ## Run with Docker Compose
-
-With Docker and Docker Compose installed, Python, uv, and MongoDB do not need
-to be installed on the host. The app and MongoDB run in separate containers.
 
 ```sh
 cp .env.example .env
 mkdir -p sessions
 ```
 
-Edit `.env` with your Telegram credentials and chat settings, then build:
+Set `API_ID` and `API_HASH` in `.env` using your Telegram application credentials
+from [my.telegram.org](https://my.telegram.org).
 
 ```sh
-docker compose build
+docker compose up --build -d
 ```
 
-Run a backup (interactive Telegram login is supported):
+Open [localhost:8080](http://localhost:8080).
+
+1. Enter your phone number, then the code Telegram sends you. Enter your
+   two-step verification password if requested.
+2. Select a source chat and a different destination chat. Refresh chats if needed.
+3. Click **Start / resume backup**. Progress appears below the controls.
+4. Use **Stop** to pause or **Log out** to stop the job and revoke this UI's
+   Telegram session. Closing the browser does not stop a running backup.
+
+One account and one backup run are supported at a time. All browser tabs share
+that account and job. The UI is published only on the host loopback interface.
+
+Each run copies the source history available at its start, oldest first. Run it
+again to pick up newer messages. Progress is scoped to the signed-in account,
+source, and destination. Completed messages are skipped on resume. A crash or
+stop between Telegram accepting a message and MongoDB recording it can cause a
+duplicate on resume. Failures stop the job; inspect logs and resume after fixing
+the cause. Telegram flood waits are respected automatically.
+
+The account must be allowed to read the source and post to the destination.
+Service messages are archived but skipped for sending. Text, formatting,
+photos, documents, audio, and video are saved and sent individually. Album grouping,
+replies, edits, and deletions are not mirrored. Web previews may be regenerated.
+Other media types stop the archive with an error rather than silently lose data.
+Telegram can still reject downloads or sends based on account permissions.
+
+Attachments persist under `/data/media` in the `app_data` volume (or `media/`
+for local Python execution); MongoDB stores their paths and message content.
+The entire available history is archived before delivery begins. Sending reads
+saved MongoDB records and local attachment files; it never forwards Telegram
+messages. Failed sends remain pending and are retried on resume.
+
+## Data and troubleshooting
+
+MongoDB is internal to Compose at `mongodb://mongodb:27017/` and persists in
+`mongodb_data`. UI archives and cursors use the `ui_messages` and `ui_progress`
+collections in `telegram_backup`. Legacy CLI data is not imported into UI jobs.
+Telegram's reusable session is stored in `sessions/ui.session` on the host.
+Treat session files as credentials. Logout revokes the UI session; archived
+messages and progress remain available for future sign-ins.
 
 ```sh
-docker compose run --rm app
-```
-
-Send stored messages:
-
-```sh
-docker compose run --rm app python /app/send.py
-```
-
-Both commands start MongoDB automatically and wait until it is healthy.
-MongoDB is available to the app at `mongodb://mongodb:27017/`; its port is
-not published to the host. Compose sets `MONGODB_URI` to this internal address.
-
-MongoDB messages persist in the `mongodb_data` named volume. The backup cursor
-(`last_message_id.txt`) persists in the `app_data` named volume. Telegram
-sessions persist in the host's `sessions/` directory. Existing host MongoDB
-data and the host's `last_message_id.txt` are not automatically imported.
-
-Stop containers while retaining saved data:
-
-```sh
+docker compose logs -f ui
 docker compose down
 ```
 
-`docker compose down --volumes` deletes the database and backup cursor volumes.
-Run commands from the same project directory to reuse the same volumes.
+Stopping containers preserves saved data. `docker compose down --volumes`
+deletes MongoDB and the `app_data` volume, but not the host `sessions/` folder.
 
-The existing `sign_in.py` starts at account 21. To use it, set
-`NUMBER_OF_ACCOUNTS` above 21 and run it inside the mounted session directory:
+## Run without Docker
 
-```sh
-docker compose run --rm -w /data/sessions app python /app/sign_in.py
-```
-
-This writes `sessions/account_N.session` on the host, ready for `send.py`.
-`backup.py` creates its own `sessions/session_name.session` on first login.
-
-## Setup
+Install Python 3.10+, [uv](https://docs.astral.sh/uv/), and MongoDB, then:
 
 ```sh
 uv sync --locked
-mkdir -p sessions
+cp .env.example .env
+# Set API_ID and API_HASH, and MONGODB_URI if needed.
+uv run python ui.py
 ```
 
-Create a `.env` file in the project root with these values:
-
-```dotenv
-API_ID=your_telegram_api_id
-API_HASH=your_telegram_api_hash
-SOURCE_CHAT_ENTITY=your_source_chat_id
-TARGET_CHAT_ID=your_target_chat_id
-NUMBER_OF_ACCOUNTS=your_account_count
-BATCH_SIZE=your_batch_size
-```
-
-Use numeric values for all fields except `API_HASH`. For local Python execution,
-MongoDB defaults to `mongodb://localhost:27017/`; set `MONGODB_URI` in `.env` to
-use another address. The scripts use the `telegram_backup` database.
-
-## Run
-
-Run commands from the project root:
-
-```sh
-uv run python backup.py
-uv run python send.py
-uv run python sign_in.py
-```
-
-`backup.py` uses `sessions/session_name`. `send.py` uses `sessions/account_N`.
-`sign_in.py` currently starts at account 21 and writes `account_N.session` in
-the project root; adjust its `start_from` value as needed and move those session
-files into `sessions/` before using them with `send.py`.
-
-## Dependencies
-
-Dependencies are declared in `pyproject.toml`, with resolved versions in
-`uv.lock`. To add or update dependencies:
-
-```sh
-uv add package-name
-uv lock --upgrade
-uv sync --locked
-```
+Open [localhost:8080](http://localhost:8080). Local Python execution binds to
+127.0.0.1 by default. The original `backup.py`, `send.py`, and `sign_in.py`
+remain available as legacy scripts and require their additional chat/account
+settings; the UI does not use those scripts or their session files.

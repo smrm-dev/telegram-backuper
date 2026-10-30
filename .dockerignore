@@ -9,3 +9,6 @@
 !settings/*.py
 !logger/
 !logger/*.py
+!ui.py
+!static/
+!static/*.html

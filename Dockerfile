@@ -12,11 +12,13 @@ WORKDIR /app
 COPY pyproject.toml uv.lock ./
 RUN uv sync --locked --no-dev
 
-COPY backup.py send.py sign_in.py ./
+COPY backup.py send.py sign_in.py ui.py ./
+COPY static/ ./static/
 COPY settings/ ./settings/
 COPY logger/ ./logger/
 
 RUN mkdir -p /data/sessions
 WORKDIR /data
 
-CMD ["python", "/app/backup.py"]
+EXPOSE 8080
+CMD ["python", "/app/ui.py"]
